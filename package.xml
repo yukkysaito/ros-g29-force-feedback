@@ -5,6 +5,7 @@
   <version>0.0.0</version>
   <description>The g29_ff package</description>
   <maintainer email="kuriatsubayashi712@gmail.com">kuriatsu</maintainer>
+  <maintainer email="yukky.saito@gmail.com">Yukihiro Saito</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

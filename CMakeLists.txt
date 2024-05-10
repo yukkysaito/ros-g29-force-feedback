@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ros_g29_force_feedback)
+project(autoware_g29_driving_force_controller)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -31,14 +31,14 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES rosidl_default_generators std_msgs)
 
 # Add executable
-add_executable(g29_force_feedback src/g29_force_feedback.cpp)
-ament_target_dependencies(g29_force_feedback ${dependencies})
-rosidl_target_interfaces(g29_force_feedback ${PROJECT_NAME} "rosidl_typesupport_cpp")
+add_executable(autoware_g29_driving_force_controller src/autoware_g29_driving_force_controller.cpp)
+ament_target_dependencies(autoware_g29_driving_force_controller ${dependencies})
+rosidl_target_interfaces(autoware_g29_driving_force_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 ament_export_dependencies(rosidl_default_runtime)
 
 install(TARGETS
-  g29_force_feedback
+  autoware_g29_driving_force_controller
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -52,12 +52,13 @@ install(DIRECTORY launch
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+
   # the following line skips the linter which checks for copyrights
   # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
+  # set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
   # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
+  # set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 
