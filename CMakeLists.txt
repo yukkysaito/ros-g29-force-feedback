@@ -1,65 +1,24 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 project(autoware_g29_driving_force_controller)
 
-# Default to C99
-if(NOT CMAKE_C_STANDARD)
-  set(CMAKE_C_STANDARD 99)
-endif()
-
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
-
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wconversion)
 endif()
 
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
 
+ament_auto_find_build_dependencies()
 set(dependencies
   rclcpp
   std_msgs
 )
 
-# Generate project targer with msg
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ForceFeedback.msg"
-  DEPENDENCIES rosidl_default_generators std_msgs)
+  DEPENDENCIES ${${PROJECT_NAME}_FOUND_BUILD_DEPENDS})
 
-# Add executable
-add_executable(autoware_g29_driving_force_controller src/autoware_g29_driving_force_controller.cpp)
-ament_target_dependencies(autoware_g29_driving_force_controller ${dependencies})
-rosidl_target_interfaces(autoware_g29_driving_force_controller ${PROJECT_NAME} "rosidl_typesupport_cpp")
+add_executable(autoware_g29_driving_force_controller_node src/autoware_g29_driving_force_controller.cpp)
+ament_target_dependencies(autoware_g29_driving_force_controller_node ${dependencies})
+rosidl_target_interfaces(autoware_g29_driving_force_controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-ament_export_dependencies(rosidl_default_runtime)
-
-install(TARGETS
-  autoware_g29_driving_force_controller
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
-)
-
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  # set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  # set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
-
-ament_package()
+ament_auto_package()

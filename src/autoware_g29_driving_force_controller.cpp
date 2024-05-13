@@ -7,13 +7,12 @@
 
 AutowareG29DrivingForceController::AutowareG29DrivingForceController(
     const std::string &name)
-    : Node(name), device_handle_(-1), position_(0.0), torque_(0.0),
-      attack_length_(0.0), axis_code_(ABS_X), is_target_updated_(false) {
-  subscription_ =
-      this->create_subscription<ros_g29_force_feedback::msg::ForceFeedback>(
-          "/ff_target", rclcpp::SystemDefaultsQoS(),
-          std::bind(&AutowareG29DrivingForceController::targetCallback, this,
-                    std::placeholders::_1));
+    : Node(name) {
+  subscription_ = this->create_subscription<
+      autoware_g29_driving_force_controller::msg::ForceFeedback>(
+      "/ff_target", rclcpp::SystemDefaultsQoS(),
+      std::bind(&AutowareG29DrivingForceController::targetCallback, this,
+                std::placeholders::_1));
   readParameters();
   initDevice();
   timer_ = this->create_wall_timer(
@@ -28,28 +27,31 @@ AutowareG29DrivingForceController::~AutowareG29DrivingForceController() {
     effect_.u.constant.level = 0;
     effect_.direction = 0;
     if (ioctl(device_handle_, EVIOCSFF, &effect_) < 0) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to upload m_effect");
+      RCLCPP_ERROR(this->get_logger(), "Failed to upload effect_");
     }
     close(device_handle_);
   }
 }
 
 void AutowareG29DrivingForceController::readParameters() {
-  this->declare_parameter<std::string>("device_name", "default_device");
-  this->declare_parameter<double>("loop_rate", 100.0);
-  this->declare_parameter<double>("max_torque", 1.0);
-  this->declare_parameter<double>("min_torque", 0.1);
-  this->declare_parameter<double>("brake_position", 0.2);
-  this->declare_parameter<double>("brake_torque", 0.5);
-  this->declare_parameter<double>("auto_centering_max_torque", 0.3);
-  this->declare_parameter<double>("auto_centering_max_position", 0.4);
-  this->declare_parameter<double>("epsilon", 0.05);
-  this->declare_parameter<bool>("auto_centering", false);
+  device_name_ =
+      declare_parameter<std::string>("device_name", "default_device");
+  loop_rate_ = declare_parameter<double>("loop_rate", 100.0);
+  max_torque_ = declare_parameter<double>("max_torque", 1.0);
+  min_torque_ = declare_parameter<double>("min_torque", 0.1);
+  brake_position_ = declare_parameter<double>("brake_position", 0.2);
+  brake_torque_ = declare_parameter<double>("brake_torque", 0.5);
+  auto_centering_max_torque_ =
+      declare_parameter<double>("auto_centering_max_torque", 0.3);
+  auto_centering_max_position_ =
+      declare_parameter<double>("auto_centering_max_position", 0.4);
+  epsilon_ = declare_parameter<double>("epsilon", 0.05);
+  auto_centering_ = declare_parameter<bool>("auto_centering", false);
 }
 
 void AutowareG29DrivingForceController::initDevice() {
   // setup device
-  unsigned char key_bits[1 + KEY_MAX / 8 / sizeof(unsigned char)];
+  // unsigned char key_bits[1 + KEY_MAX / 8 / sizeof(unsigned char)];
   unsigned char abs_bits[1 + ABS_MAX / 8 / sizeof(unsigned char)];
   unsigned char ff_bits[1 + FF_MAX / 8 / sizeof(unsigned char)];
   struct input_event event;
@@ -60,7 +62,6 @@ void AutowareG29DrivingForceController::initDevice() {
     RCLCPP_ERROR(this->get_logger(), "cannot open device : %s",
                  device_name_.c_str());
     rclcpp::shutdown();
-
   } else {
     RCLCPP_INFO(this->get_logger(), "device opened : %s", device_name_.c_str());
   }
@@ -81,7 +82,7 @@ void AutowareG29DrivingForceController::initDevice() {
   }
 
   // get axis value range
-  if (ioctl(device_handle_, EVIOCGABS(m_axis_code), &abs_info) < 0) {
+  if (ioctl(device_handle_, EVIOCGABS(axis_code_), &abs_info) < 0) {
     RCLCPP_ERROR(this->get_logger(), "cannot get axis range");
     rclcpp::shutdown();
   }
@@ -145,6 +146,8 @@ void AutowareG29DrivingForceController::initDevice() {
 
 void AutowareG29DrivingForceController::updateLoop() {
   struct input_event event;
+
+  // get current state
   while (read(device_handle_, &event, sizeof(event)) == sizeof(event)) {
     if (event.type == EV_ABS && event.code == axis_code_) {
       position_ = (event.value - (axis_max_ + axis_min_) * 0.5) * 2 /
@@ -152,35 +155,69 @@ void AutowareG29DrivingForceController::updateLoop() {
     }
   }
 
-  if (auto_centering_ || is_target_updated_) {
+  if (is_brake_range_ || auto_centering_) {
+    calculateCenteringForce(torque_, current_target_, position_);
+    attack_length_ = 0.0;
+
+  } else {
+    calculateRotateForce(torque_, attack_length_, current_target_, position_);
     is_target_updated_ = false;
-    calculateForce();
-    uploadEffect();
   }
+
+  uploadEffect();
 }
 
-void AutowareG29DrivingForceController::calculateForce() {
-  double diff = current_target_.position - position_;
+void AutowareG29DrivingForceController::calculateCenteringForce(
+    double &torque,
+    const autoware_g29_driving_force_controller::msg::ForceFeedback &target,
+    const double &current_position) {
+
+  double diff = target.position - current_position;
   double direction = (diff > 0.0) ? 1.0 : -1.0;
 
   if (fabs(diff) < epsilon_) {
-    torque_ = 0.0;
-    attack_length_ = 0.0;
+    torque = 0.0;
+
   } else {
-    torque_ = current_target_.torque * direction;
-    attack_length_ = loop_rate_;
+    double torque_range = auto_centering_max_torque_ - min_torque_;
+    double power =
+        (fabs(diff) - epsilon_) / (auto_centering_max_position_ - epsilon_);
+    double buf_torque = power * torque_range + min_torque_;
+    torque = std::min(buf_torque, auto_centering_max_torque_) * direction;
+  }
+}
+
+void AutowareG29DrivingForceController::calculateRotateForce(
+    double &torque, double &attack_length,
+    const autoware_g29_driving_force_controller::msg::ForceFeedback &target,
+    const double &current_position) {
+  double diff = target.position - current_position;
+  double direction = (diff > 0.0) ? 1.0 : -1.0;
+
+  if (fabs(diff) < epsilon_) {
+    torque = 0.0;
+    attack_length = 0.0;
+
+  } else if (fabs(diff) < brake_position_) {
+    is_brake_range_ = true;
+    torque = target.torque * brake_torque_ * -direction;
+    attack_length = loop_rate_;
+
+  } else {
+    torque = target.torque * direction;
+    attack_length = loop_rate_;
   }
 }
 
 void AutowareG29DrivingForceController::uploadEffect() {
-  effect_.u.constant.level = 0x7fff * std::min(torque_, max_torque_);
+  effect_.u.constant.level =
+      static_cast<__s16>(0x7fff * std::min(torque_, max_torque_));
   effect_.direction = 0xC000;
   effect_.u.constant.envelope.attack_level = 0;
   effect_.u.constant.envelope.attack_length =
-      static_cast<unsigned int>(attack_length_);
+      static_cast<__u16>(attack_length_);
   effect_.u.constant.envelope.fade_level = 0;
-  effect_.u.constant.envelope.fade_length =
-      static_cast<unsigned int>(attack_length_);
+  effect_.u.constant.envelope.fade_length = static_cast<__u16>(attack_length_);
 
   if (ioctl(device_handle_, EVIOCSFF, &effect_) < 0) {
     RCLCPP_ERROR(this->get_logger(), "Failed to upload effect");
@@ -188,7 +225,8 @@ void AutowareG29DrivingForceController::uploadEffect() {
 }
 
 void AutowareG29DrivingForceController::targetCallback(
-    const ros_g29_force_feedback::msg::ForceFeedback::SharedPtr msg) {
+    const autoware_g29_driving_force_controller::msg::ForceFeedback::SharedPtr
+        msg) {
   is_target_updated_ = true;
   current_target_ = *msg;
 }

@@ -20,17 +20,17 @@ This is useful for the user interface of autonomous driving, driving simulator l
 
 
 * ROS1 and ROS2 support. (if you use ROS1, checkout and refer [ros1 branch](https://github.com/kuriatsu/ros-g29-force-feedback/tree/ros1))
-    |ROS version|g29|g923|
-    |:--|:--|:--|
-    |ROS1|--|--|
-    |Kinetic|tested|no|
-    |Melodic|tested|no|
-    |Noetic|tested|no|
-    |ROS2|--|--|
-    |Dashing|no|no|
-    |Foxy|tested|no|
-    |Galactic|tested|no|
-    |Humble|no|no|
+    | ROS version | g29    | g923 |
+    | :---------- | :----- | :--- |
+    | ROS1        | --     | --   |
+    | Kinetic     | tested | no   |
+    | Melodic     | tested | no   |
+    | Noetic      | tested | no   |
+    | ROS2        | --     | --   |
+    | Dashing     | no     | no   |
+    | Foxy        | tested | no   |
+    | Galactic    | tested | no   |
+    | Humble      | no     | no   |
 
 # Requirement of `master` branch
 * ubuntu18-22
@@ -84,18 +84,18 @@ If you cannot get `CONFIG_LOGIWHEELS_FF=y`, try to find patch or use latest kern
 # Parameter
 
 **g29_force_feedback.yaml**
-|parameter|default|description|
-|:--|:--|:--|
-|device_name|/dev/input/event19|device name, change the number|
-|loop_rate|0.1|Loop of retrieving wheel position and uploading control to the wheel|
-|max_torque|1.0|As for g29, 1.0 = 2.5Nm (min_torque < max_torque < 1.0)|
-|min_torque|0.2|Less than 0.2 cannot rotate wheel|
-|brake_torque|0.2|Braking torque to stop at the position (descrived below)|
-|brake_position|0.1|Brake angle (`position`-0.1*max_angle)|
-|auto_centering_max_torque|0.3|Max torque for auto centering|
-|auto_centering_max_position|0.2|Max torque position while auto centering (`position`±0.2*max_angle)|
-|eps|0.01|Wheel in the range (position-eps to position+eps) is considered as it has reached the `position`|
-|auto_centering|false|Anto centering if true|
+| parameter                   | default            | description                                                                                      |
+| :-------------------------- | :----------------- | :----------------------------------------------------------------------------------------------- |
+| device_name                 | /dev/input/event19 | device name, change the number                                                                   |
+| loop_rate                   | 0.1                | Loop of retrieving wheel position and uploading control to the wheel                             |
+| max_torque                  | 1.0                | As for g29, 1.0 = 2.5Nm (min_torque < max_torque < 1.0)                                          |
+| min_torque                  | 0.2                | Less than 0.2 cannot rotate wheel                                                                |
+| brake_torque                | 0.2                | Braking torque to stop at the position (descrived below)                                         |
+| brake_position              | 0.1                | Brake angle (`position`-0.1*max_angle)                                                           |
+| auto_centering_max_torque   | 0.3                | Max torque for auto centering                                                                    |
+| auto_centering_max_position | 0.2                | Max torque position while auto centering (`position`±0.2*max_angle)                              |
+| eps                         | 0.01               | Wheel in the range (position-eps to position+eps) is considered as it has reached the `position` |
+| auto_centering              | false              | Anto centering if true                                                                           |
 
 ![ros_g29_ff](https://user-images.githubusercontent.com/38074802/167057448-1fa21956-ae91-4e51-bee4-1fcdc05cae51.png)
 
@@ -111,34 +111,3 @@ If you cannot get `CONFIG_LOGIWHEELS_FF=y`, try to find patch or use latest kern
 # Author
 
 [kuriatsu](https://github.com/kuriatsu)
-
-# Change Log
-
-## 2023-03-19
-Bag fix in ros1 branch thanks to [pedrohdsimoes](https://github.com/pedrohdsimoes)
-
-## 2022-11-6
-### examples added
-An example script of CARLA connection was added. Rotate the wheel according to the ego vehicle spawned in CARLA as shown in the GIF image.
-
-## 2022-04-21
-
-### ROS2-Foxy integration
-Now available in ROS2-Foxy thanks to [JLBicho](https://github.com/JLBicho)
-
-## 2021-11-03
-### Huge Improvement !!! 
-Oscillation problem solved.
-Wheel stops at the specified position, then starts auto centering.
-Auto centering mode are set by rosparam in config/g29.yaml, not by rostopic.
-Name of topic variables changed.
-
-## 2020-10-10
-### changed
-PID-Constant mode can be changed dynamically!!
-Removed mode selection from rosparam.
-Rotation force is ignored when PID mode. (max force can be specified with rosparam (not dynamic))
-
-# Reference
-https://www.kernel.org/doc/html/v5.4/input/ff.html  
-https://github.com/flosse/linuxconsole/tree/master
