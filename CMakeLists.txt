@@ -10,15 +10,16 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 set(dependencies
   rclcpp
-  std_msgs
+  autoware_auto_vehicle_msgs
+
+  # std_msgs
 )
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/ForceFeedback.msg"
-  DEPENDENCIES ${${PROJECT_NAME}_FOUND_BUILD_DEPENDS})
-
+# rosidl_generate_interfaces(${PROJECT_NAME}
+# "msg/ForceFeedback.msg"
+# DEPENDENCIES ${${PROJECT_NAME}_FOUND_BUILD_DEPENDS})
 add_executable(autoware_g29_driving_force_controller_node src/autoware_g29_driving_force_controller.cpp)
 ament_target_dependencies(autoware_g29_driving_force_controller_node ${dependencies})
-rosidl_target_interfaces(autoware_g29_driving_force_controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+# rosidl_target_interfaces(autoware_g29_driving_force_controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 ament_auto_package()

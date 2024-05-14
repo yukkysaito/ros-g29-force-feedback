@@ -8,9 +8,14 @@
 AutowareG29DrivingForceController::AutowareG29DrivingForceController(
     const std::string &name)
     : Node(name) {
+  // subscription_ = this->create_subscription<
+  //     autoware_g29_driving_force_controller::msg::ForceFeedback>(
+  //     "/ff_target", rclcpp::SystemDefaultsQoS(),
+  //     std::bind(&AutowareG29DrivingForceController::targetCallback, this,
+  //               std::placeholders::_1));
   subscription_ = this->create_subscription<
-      autoware_g29_driving_force_controller::msg::ForceFeedback>(
-      "/ff_target", rclcpp::SystemDefaultsQoS(),
+      autoware_auto_vehicle_msgs::msg::SteeringReport>(
+      "/vehicle/status/steering_status", rclcpp::SystemDefaultsQoS(),
       std::bind(&AutowareG29DrivingForceController::targetCallback, this,
                 std::placeholders::_1));
   readParameters();
@@ -38,13 +43,13 @@ void AutowareG29DrivingForceController::readParameters() {
       declare_parameter<std::string>("device_name", "default_device");
   loop_rate_ = declare_parameter<double>("loop_rate", 100.0);
   max_torque_ = declare_parameter<double>("max_torque", 1.0);
-  min_torque_ = declare_parameter<double>("min_torque", 0.1);
-  brake_position_ = declare_parameter<double>("brake_position", 0.2);
-  brake_torque_ = declare_parameter<double>("brake_torque", 0.5);
+  min_torque_ = declare_parameter<double>("min_torque", 0.2);
+  brake_position_ = declare_parameter<double>("brake_position", 0.1);
+  brake_torque_ = declare_parameter<double>("brake_torque", 0.2);
   auto_centering_max_torque_ =
       declare_parameter<double>("auto_centering_max_torque", 0.3);
   auto_centering_max_position_ =
-      declare_parameter<double>("auto_centering_max_position", 0.4);
+      declare_parameter<double>("auto_centering_max_position", 0.2);
   epsilon_ = declare_parameter<double>("epsilon", 0.05);
   auto_centering_ = declare_parameter<bool>("auto_centering", false);
 }
@@ -156,11 +161,11 @@ void AutowareG29DrivingForceController::updateLoop() {
   }
 
   if (is_brake_range_ || auto_centering_) {
-    calculateCenteringForce(torque_, current_target_, position_);
+    calculateCenteringForce(torque_, target_, position_);
     attack_length_ = 0.0;
 
   } else {
-    calculateRotateForce(torque_, attack_length_, current_target_, position_);
+    calculateRotateForce(torque_, attack_length_, target_, position_);
     is_target_updated_ = false;
   }
 
@@ -168,9 +173,7 @@ void AutowareG29DrivingForceController::updateLoop() {
 }
 
 void AutowareG29DrivingForceController::calculateCenteringForce(
-    double &torque,
-    const autoware_g29_driving_force_controller::msg::ForceFeedback &target,
-    const double &current_position) {
+    double &torque, const Target &target, const double &current_position) {
 
   double diff = target.position - current_position;
   double direction = (diff > 0.0) ? 1.0 : -1.0;
@@ -188,8 +191,7 @@ void AutowareG29DrivingForceController::calculateCenteringForce(
 }
 
 void AutowareG29DrivingForceController::calculateRotateForce(
-    double &torque, double &attack_length,
-    const autoware_g29_driving_force_controller::msg::ForceFeedback &target,
+    double &torque, double &attack_length, const Target &target,
     const double &current_position) {
   double diff = target.position - current_position;
   double direction = (diff > 0.0) ? 1.0 : -1.0;
@@ -224,11 +226,19 @@ void AutowareG29DrivingForceController::uploadEffect() {
   }
 }
 
+// void AutowareG29DrivingForceController::targetCallback(
+//     const
+//     autoware_g29_driving_force_controller::msg::ForceFeedback::SharedPtr
+//         msg) {
+// is_target_updated_ = true;
+// target_.position = msg->position;
+// target_.torque = msg->torque;
+// }
 void AutowareG29DrivingForceController::targetCallback(
-    const autoware_g29_driving_force_controller::msg::ForceFeedback::SharedPtr
-        msg) {
+    const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg) {
   is_target_updated_ = true;
-  current_target_ = *msg;
+  target_.position = msg->steering_tire_angle;
+  target_.torque = 0.3;
 }
 
 int AutowareG29DrivingForceController::checkBit(int bit, unsigned char *array) {
