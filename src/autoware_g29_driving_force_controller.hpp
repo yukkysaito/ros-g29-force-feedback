@@ -47,6 +47,7 @@ private:
   double loop_rate_;
   double max_torque_, min_torque_, brake_position_, brake_torque_;
   double auto_centering_max_torque_, auto_centering_max_position_, epsilon_;
+  double steering_handle_angle_ratio_;
   bool auto_centering_;
   bool is_target_updated_ = false;
   bool is_brake_range_ = false;

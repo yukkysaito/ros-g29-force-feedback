@@ -8,11 +8,6 @@
 AutowareG29DrivingForceController::AutowareG29DrivingForceController(
     const std::string &name)
     : Node(name) {
-  // subscription_ = this->create_subscription<
-  //     autoware_g29_driving_force_controller::msg::ForceFeedback>(
-  //     "/ff_target", rclcpp::SystemDefaultsQoS(),
-  //     std::bind(&AutowareG29DrivingForceController::targetCallback, this,
-  //               std::placeholders::_1));
   subscription_ = this->create_subscription<
       autoware_auto_vehicle_msgs::msg::SteeringReport>(
       "/vehicle/status/steering_status", rclcpp::SystemDefaultsQoS(),
@@ -41,7 +36,9 @@ AutowareG29DrivingForceController::~AutowareG29DrivingForceController() {
 void AutowareG29DrivingForceController::readParameters() {
   device_name_ =
       declare_parameter<std::string>("device_name", "default_device");
-  loop_rate_ = declare_parameter<double>("loop_rate", 100.0);
+  loop_rate_ = declare_parameter<double>("loop_rate", 10.0);
+  steering_handle_angle_ratio_ =
+      declare_parameter<double>("steering_handle_angle_ratio", 17.0);
   max_torque_ = declare_parameter<double>("max_torque", 1.0);
   min_torque_ = declare_parameter<double>("min_torque", 0.2);
   brake_position_ = declare_parameter<double>("brake_position", 0.1);
@@ -203,11 +200,11 @@ void AutowareG29DrivingForceController::calculateRotateForce(
   } else if (fabs(diff) < brake_position_) {
     is_brake_range_ = true;
     torque = target.torque * brake_torque_ * -direction;
-    attack_length = loop_rate_;
+    attack_length = 1.0 / loop_rate_;
 
   } else {
     torque = target.torque * direction;
-    attack_length = loop_rate_;
+    attack_length = 1.0 / loop_rate_;
   }
 }
 
@@ -226,18 +223,12 @@ void AutowareG29DrivingForceController::uploadEffect() {
   }
 }
 
-// void AutowareG29DrivingForceController::targetCallback(
-//     const
-//     autoware_g29_driving_force_controller::msg::ForceFeedback::SharedPtr
-//         msg) {
-// is_target_updated_ = true;
-// target_.position = msg->position;
-// target_.torque = msg->torque;
-// }
 void AutowareG29DrivingForceController::targetCallback(
     const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg) {
   is_target_updated_ = true;
-  target_.position = msg->steering_tire_angle;
+  target_.position =
+      (msg->steering_tire_angle / (2.0 * M_PI)) * steering_handle_angle_ratio_;
+  target_.position = std::clamp(target_.position, -1.0, 1.0);
   target_.torque = 0.3;
 }
 

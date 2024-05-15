@@ -23,3 +23,8 @@ ament_target_dependencies(autoware_g29_driving_force_controller_node ${dependenc
 
 # rosidl_target_interfaces(autoware_g29_driving_force_controller_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 ament_auto_package()
+
+install(TARGETS
+  g29_force_feedback
+  DESTINATION lib/${PROJECT_NAME}
+)
