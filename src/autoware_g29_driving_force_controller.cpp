@@ -35,8 +35,7 @@ AutowareG29DrivingForceController::~AutowareG29DrivingForceController() {
 }
 
 void AutowareG29DrivingForceController::readParameters() {
-  device_name_ =
-      declare_parameter<std::string>("device_name", "/dev/input/event19");
+  device_name_ = declare_parameter<std::string>("device_name", "/dev/g29");
   loop_rate_ = declare_parameter<double>("loop_rate", 100.0);
   max_torque_ = declare_parameter<double>("max_torque", 1.0);
   min_torque_ = declare_parameter<double>("min_torque", 0.2);
