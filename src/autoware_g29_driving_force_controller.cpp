@@ -148,8 +148,6 @@ void AutowareG29DrivingForceController::initDevice() {
 
 void AutowareG29DrivingForceController::updateLoop() {
   struct input_event event;
-  is_target_updated_ = true;
-  target_.position += 0.01;
 
   // get current state
   while (read(device_handle_, &event, sizeof(event)) == sizeof(event)) {
