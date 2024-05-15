@@ -25,6 +25,6 @@ ament_target_dependencies(autoware_g29_driving_force_controller_node ${dependenc
 ament_auto_package()
 
 install(TARGETS
-  g29_force_feedback
+  autoware_g29_driving_force_controller_node
   DESTINATION lib/${PROJECT_NAME}
 )

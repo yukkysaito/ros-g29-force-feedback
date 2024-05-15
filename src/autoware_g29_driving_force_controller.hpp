@@ -15,10 +15,6 @@ private:
     double position;
     double torque;
   };
-  // void targetCallback(
-  //     const
-  //     autoware_g29_driving_force_controller::msg::ForceFeedback::SharedPtr
-  //         msg);
   void targetCallback(
       const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg);
 
@@ -33,9 +29,6 @@ private:
   int checkBit(int bit, unsigned char *array);
   void readParameters();
 
-  // rclcpp::Subscription<
-  //     autoware_g29_driving_force_controller::msg::ForceFeedback>::SharedPtr
-  //     subscription_;
   rclcpp::Subscription<
       autoware_auto_vehicle_msgs::msg::SteeringReport>::SharedPtr subscription_;
 
