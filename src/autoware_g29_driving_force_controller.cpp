@@ -36,17 +36,14 @@ AutowareG29DrivingForceController::~AutowareG29DrivingForceController() {
 
 void AutowareG29DrivingForceController::readParameters() {
   device_name_ = declare_parameter<std::string>("device_name", "/dev/g29");
-  loop_rate_ = declare_parameter<double>("loop_rate", 100.0);
-  max_torque_ = declare_parameter<double>("max_torque", 1.0);
-  min_torque_ = declare_parameter<double>("min_torque", 0.2);
-  brake_position_ = declare_parameter<double>("brake_position", 0.1);
-  brake_torque_ = declare_parameter<double>("brake_torque", 0.2);
-  auto_centering_max_torque_ =
-      declare_parameter<double>("auto_centering_max_torque", 0.3);
-  auto_centering_max_position_ =
-      declare_parameter<double>("auto_centering_max_position", 0.2);
-  epsilon_ = declare_parameter<double>("epsilon", 0.05);
-  auto_centering_ = declare_parameter<bool>("auto_centering", false);
+  loop_rate_ = declare_parameter<double>("loop_rate", 30.0);
+  steering_handle_angle_ratio_ =
+      declare_parameter<double>("steering_handle_angle_ratio", 15.0);
+  max_torque_ = declare_parameter<double>("max_torque", 0.5);
+  min_torque_ = declare_parameter<double>("min_torque", 0.16);
+  kp_ = declare_parameter<double>("kp", 7.0);
+  ki_ = declare_parameter<double>("ki", 100.0);
+  kd_ = declare_parameter<double>("kd", 0.0);
 }
 
 void AutowareG29DrivingForceController::initDevice() {
@@ -146,79 +143,48 @@ void AutowareG29DrivingForceController::initDevice() {
 
 void AutowareG29DrivingForceController::updateLoop() {
   struct input_event event;
-  is_target_updated_ = true;
-  target_.position += 0.01;
+  const double loop_period = 1.0 / loop_rate_;
 
   // get current state
+  double current_position = 0.0;
   while (read(device_handle_, &event, sizeof(event)) == sizeof(event)) {
     if (event.type == EV_ABS && event.code == axis_code_) {
-      position_ = (event.value - (axis_max_ + axis_min_) * 0.5) * 2 /
-                  (axis_max_ - axis_min_);
+      current_position = (event.value - (axis_max_ + axis_min_) * 0.5) * 2 /
+                         (axis_max_ - axis_min_);
     }
   }
-  RCLCPP_INFO(this->get_logger(), "position %f", position_);
-  RCLCPP_INFO(this->get_logger(), "target_.position %f", target_.position);
+  RCLCPP_INFO(this->get_logger(), "current position %f", current_position);
+  RCLCPP_INFO(this->get_logger(), "target position %f", target_position_);
 
-  if (is_brake_range_ || auto_centering_) {
-    calculateCenteringForce(torque_, target_, position_);
-    attack_length_ = 0.0;
+  double error = target_position_ - current_position;
+  integral_error_ += error * loop_period;
+  integral_error_ = std::clamp(integral_error_, -0.001, 0.001);
 
-  } else {
-    calculateRotateForce(torque_, attack_length_, target_, position_);
-    is_target_updated_ = false;
-  }
+  double derivative_error = (error - previous_error_) * loop_period;
+  derivative_error = std::clamp(derivative_error, -0.1, 0.1);
 
-  uploadEffect();
+  double direction = error < 0.0 ? -1.0 : 1.0;
+  RCLCPP_INFO(this->get_logger(), "kp torque_ %f", error * kp_);
+  RCLCPP_INFO(this->get_logger(), "ki torque_ %f", integral_error_ * ki_);
+
+  double torque = error * kp_ + integral_error_ * ki_ + derivative_error * kd_;
+  torque = std::clamp(std::fabs(torque), min_torque_, max_torque_) * direction;
+
+  uploadEffect(torque, loop_period);
+
+  previous_error_ = error;
 }
 
-void AutowareG29DrivingForceController::calculateCenteringForce(
-    double &torque, const Target &target, const double &current_position) {
+void AutowareG29DrivingForceController::uploadEffect(
+    const double &torque, const double &attack_length) {
+  effect_.u.constant.level = static_cast<__s16>(0x7fff * torque);
+  RCLCPP_INFO(this->get_logger(), "torque %f", torque);
 
-  double diff = target.position - current_position;
-  double direction = (diff > 0.0) ? 1.0 : -1.0;
-
-  if (fabs(diff) < epsilon_) {
-    torque = 0.0;
-
-  } else {
-    double torque_range = auto_centering_max_torque_ - min_torque_;
-    double power =
-        (fabs(diff) - epsilon_) / (auto_centering_max_position_ - epsilon_);
-    double buf_torque = power * torque_range + min_torque_;
-    torque = std::min(buf_torque, auto_centering_max_torque_) * direction;
-  }
-}
-
-void AutowareG29DrivingForceController::calculateRotateForce(
-    double &torque, double &attack_length, const Target &target,
-    const double &current_position) {
-  double diff = target.position - current_position;
-  double direction = (diff > 0.0) ? 1.0 : -1.0;
-
-  if (fabs(diff) < epsilon_) {
-    torque = 0.0;
-    attack_length = 0.0;
-
-  } else if (fabs(diff) < brake_position_) {
-    is_brake_range_ = true;
-    torque = target.torque * brake_torque_ * -direction;
-    attack_length = loop_rate_;
-
-  } else {
-    torque = target.torque * direction;
-    attack_length = loop_rate_;
-  }
-}
-
-void AutowareG29DrivingForceController::uploadEffect() {
-  effect_.u.constant.level =
-      static_cast<__s16>(0x7fff * std::min(torque_, max_torque_));
   effect_.direction = 0xC000;
   effect_.u.constant.envelope.attack_level = 0;
-  effect_.u.constant.envelope.attack_length =
-      static_cast<__u16>(attack_length_);
+  effect_.u.constant.envelope.attack_length = static_cast<__u16>(attack_length);
   effect_.u.constant.envelope.fade_level = 0;
-  effect_.u.constant.envelope.fade_length = static_cast<__u16>(attack_length_);
+  effect_.u.constant.envelope.fade_length = static_cast<__u16>(attack_length);
 
   if (ioctl(device_handle_, EVIOCSFF, &effect_) < 0) {
     RCLCPP_ERROR(this->get_logger(), "Failed to upload effect");
@@ -227,11 +193,9 @@ void AutowareG29DrivingForceController::uploadEffect() {
 
 void AutowareG29DrivingForceController::targetCallback(
     const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg) {
-  is_target_updated_ = true;
-  target_.position =
-      std::clamp(msg->steering_tire_angle, static_cast<float>(-1.0),
-                 static_cast<float>(1.0));
-  target_.torque = 0.3;
+  target_position_ = (msg->steering_tire_angle / (2.0 * M_PI)) *
+                     steering_handle_angle_ratio_ * -1.0;
+  target_position_ = std::clamp(target_position_, -1.0, 1.0);
 }
 
 int AutowareG29DrivingForceController::checkBit(int bit, unsigned char *array) {

@@ -11,21 +11,12 @@ public:
   virtual ~AutowareG29DrivingForceController();
 
 private:
-  struct Target {
-    double position;
-    double torque;
-  };
   void targetCallback(
       const autoware_auto_vehicle_msgs::msg::SteeringReport::SharedPtr msg);
 
   void updateLoop();
   void initDevice();
-  void calculateCenteringForce(double &torque, const Target &target,
-                               const double &current_position);
-  void calculateRotateForce(double &torque, double &attack_length,
-                            const Target &target,
-                            const double &current_position);
-  void uploadEffect();
+  void uploadEffect(const double &torque, const double &attack_length);
   int checkBit(int bit, unsigned char *array);
   void readParameters();
 
@@ -38,16 +29,16 @@ private:
   int axis_min_, axis_max_;
   std::string device_name_;
   double loop_rate_;
-  double max_torque_, min_torque_, brake_position_, brake_torque_;
-  double auto_centering_max_torque_, auto_centering_max_position_, epsilon_;
-  bool auto_centering_;
-  bool is_target_updated_ = false;
-  bool is_brake_range_ = false;
+  double min_torque_, max_torque_;
+  double kp_, ki_, kd_;
+  double steering_handle_angle_ratio_;
 
   struct ff_effect effect_;
   double position_ = 0.0;
+  double target_position_ = 0.0;
   double torque_ = 0.0;
-  double attack_length_ = 0.0;
+  double integral_error_ = 0.0;
+  double previous_error_ = 0.0;
 
   Target target_;
 };
