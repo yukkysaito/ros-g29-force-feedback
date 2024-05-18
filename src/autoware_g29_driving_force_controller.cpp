@@ -166,6 +166,7 @@ void AutowareG29DrivingForceController::updateLoop() {
   double direction = error < 0.0 ? -1.0 : 1.0;
   RCLCPP_INFO(this->get_logger(), "kp torque_ %f", error * kp_);
   RCLCPP_INFO(this->get_logger(), "ki torque_ %f", integral_error_ * ki_);
+  RCLCPP_INFO(this->get_logger(), "ki torque_ %f", derivative_error * kd_);
 
   double torque = error * kp_ + integral_error_ * ki_ + derivative_error * kd_;
   torque = std::clamp(std::fabs(torque), min_torque_, max_torque_) * direction;
