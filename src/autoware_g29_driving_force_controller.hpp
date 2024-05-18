@@ -39,6 +39,4 @@ private:
   double torque_ = 0.0;
   double integral_error_ = 0.0;
   double previous_error_ = 0.0;
-
-  Target target_;
 };
