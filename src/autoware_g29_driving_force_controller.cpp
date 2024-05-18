@@ -38,7 +38,7 @@ void AutowareG29DrivingForceController::readParameters() {
   device_name_ = declare_parameter<std::string>("device_name", "/dev/g29");
   loop_rate_ = declare_parameter<double>("loop_rate", 30.0);
   steering_handle_angle_ratio_ =
-      declare_parameter<double>("steering_handle_angle_ratio", 15.0);
+      declare_parameter<double>("steering_handle_angle_ratio", 16.0);
   max_torque_ = declare_parameter<double>("max_torque", 0.5);
   min_torque_ = declare_parameter<double>("min_torque", 0.16);
   kp_ = declare_parameter<double>("kp", 7.0);
@@ -147,11 +147,16 @@ void AutowareG29DrivingForceController::updateLoop() {
 
   // get current state
   double current_position = 0.0;
+  bool catch_event = false;
   while (read(device_handle_, &event, sizeof(event)) == sizeof(event)) {
     if (event.type == EV_ABS && event.code == axis_code_) {
       current_position = (event.value - (axis_max_ + axis_min_) * 0.5) * 2 /
                          (axis_max_ - axis_min_);
+      catch_event = true;
     }
+  }
+  if (!catch_event) {
+    current_position = previous_position_;
   }
   RCLCPP_INFO(this->get_logger(), "current position %f", current_position);
   RCLCPP_INFO(this->get_logger(), "target position %f", target_position_);
@@ -174,6 +179,7 @@ void AutowareG29DrivingForceController::updateLoop() {
   uploadEffect(torque, loop_period);
 
   previous_error_ = error;
+  previous_position_ = current_position;
 }
 
 void AutowareG29DrivingForceController::uploadEffect(

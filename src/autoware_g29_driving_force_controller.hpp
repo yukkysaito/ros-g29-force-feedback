@@ -34,7 +34,7 @@ private:
   double steering_handle_angle_ratio_;
 
   struct ff_effect effect_;
-  double position_ = 0.0;
+  double previous_position_ = 0.0;
   double target_position_ = 0.0;
   double torque_ = 0.0;
   double integral_error_ = 0.0;
